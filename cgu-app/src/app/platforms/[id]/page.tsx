@@ -105,18 +105,24 @@ export default async function PlatformPage({ params }: { params: Promise<{ id: s
                   <h3 className="text-xl font-bold mb-2">{point.title}</h3>
                   <p className="text-neutral-300 leading-relaxed text-lg mb-4">{point.description}</p>
                   
-                  {point.quote && (
+                  {(() => {
+                    if (!point.quote) return null;
+                    const sourceUrl = allSources.length > 0 ? allSources[0].url : platform.source_url;
+                    const hash = sourceUrl.includes("#") ? "&" : "#";
+                    const anchor = `${hash}:~:text=${encodeURIComponent(point.quote.substring(0, 120))}`;
+                    return (
                     <div className="bg-black/20 rounded-xl p-4 border border-white/5 relative mt-4">
                       <Quote className="w-8 h-8 text-white/10 absolute top-2 left-2" />
                       <p className="text-neutral-400 italic text-sm pl-8 mb-4">&ldquo;{point.quote}&rdquo;</p>
-                      <a href={platform.source_url}
+                      <a href={sourceUrl + anchor}
                         target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 bg-primary/20 hover:bg-primary/40 text-primary font-bold py-2 px-4 rounded-lg transition-colors text-xs uppercase tracking-wider">
                         <Search className="w-4 h-4" />
                         Voir l'emplacement exact
                       </a>
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>

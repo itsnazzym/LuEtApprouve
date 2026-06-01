@@ -21,7 +21,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  metadataBase: new URL(process.env.APP_URL || "http://localhost:3000"),
   title: "LuEtApprouvé - Comprenez les règles",
   description: "Agrégateur visuel pour simplifier les Conditions Générales d'Utilisation",
   openGraph: {

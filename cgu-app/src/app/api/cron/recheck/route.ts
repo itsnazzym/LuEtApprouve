@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "@/db";
 import { platforms, dataPoints, sources } from "@/db/schema";
-import { eq, asc, isNull } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { findAllPolicyUrls } from "@/lib/crawler";
 import { analyzeTermsOfService } from "@/lib/ai";
+import { requireApiKey } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rate-limit";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
-
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -31,9 +33,17 @@ async function scrapeText(url: string): Promise<string | null> {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = requireApiKey(request);
+  if (authError) return authError;
+
+  const ip = request.headers.get("x-forwarded-for") || "cron";
+  const { allowed } = rateLimit(`recheck:${ip}`, 10, 60000);
+  if (!allowed) {
+    return NextResponse.json({ error: "Trop de requêtes" }, { status: 429 });
+  }
+
   try {
-    // Prendre la plateforme vérifiée le plus anciennement (ou jamais vérifiée)
     const [platform] = await db.select()
       .from(platforms)
       .orderBy(asc(platforms.last_rechecked_at))
@@ -43,7 +53,7 @@ export async function GET() {
       return NextResponse.json({ message: "Aucune plateforme à vérifier" });
     }
 
-    console.log(`[Recheck] Vérification de ${platform.name}...`);
+    logger.log(`[Recheck] Vérification de ${platform.name}...`);
 
     const text = await scrapeText(platform.source_url);
     if (!text || text.length < 500) {
@@ -51,22 +61,19 @@ export async function GET() {
     }
 
     const newHash = crypto.createHash("sha256").update(text).digest("hex");
-
     const changed = platform.content_hash && platform.content_hash !== newHash;
 
     if (!changed && platform.content_hash) {
-      // Pas de changement, juste mettre à jour last_rechecked_at
       await db.update(platforms)
         .set({ last_rechecked_at: new Date() })
         .where(eq(platforms.id, platform.id));
 
-      console.log(`[Recheck] ${platform.name} : inchangé`);
+      logger.log(`[Recheck] ${platform.name} : inchangé`);
       return NextResponse.json({ message: "Inchangé", platform: platform.name });
     }
 
-    console.log(`[Recheck] ${platform.name} : contenu modifié, ré-analyse...`);
+    logger.log(`[Recheck] ${platform.name} : contenu modifié, ré-analyse...`);
 
-    // Détecter les URLs sources
     const foundSources = await findAllPolicyUrls(platform.name.toLowerCase().replace(/\s+/g, ''));
     let combinedText = text;
 
@@ -83,11 +90,9 @@ export async function GET() {
 
     const result = await analyzeTermsOfService(combinedText);
 
-    // Supprimer les anciens dataPoints et sources
     await db.delete(dataPoints).where(eq(dataPoints.platform_id, platform.id));
     await db.delete(sources).where(eq(sources.platform_id, platform.id));
 
-    // Insérer les nouveaux
     await db.update(platforms)
       .set({
         grade: result.grade,
@@ -119,7 +124,7 @@ export async function GET() {
       );
     }
 
-    console.log(`[Recheck] ${platform.name} : mis à jour (note ${result.grade})`);
+    logger.log(`[Recheck] ${platform.name} : mis à jour (note ${result.grade})`);
     return NextResponse.json({
       success: true,
       platform: platform.name,
@@ -130,7 +135,7 @@ export async function GET() {
     });
 
   } catch (error: any) {
-    console.error("[Recheck] Erreur:", error);
+    logger.error("[Recheck] Erreur:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

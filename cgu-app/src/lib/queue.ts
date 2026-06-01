@@ -6,8 +6,6 @@ import { findAllPolicyUrls } from "@/lib/crawler";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-
 async function scrapeText(url: string): Promise<string> {
   const response = await fetch(url, {
     headers: {

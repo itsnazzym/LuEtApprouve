@@ -35,7 +35,7 @@ export default function ExtensionPage() {
                 <h3 className="text-2xl font-bold text-white mb-2">Télécharger le code source</h3>
                 <p className="text-neutral-400 mb-4">Récupérez le dossier contenant l'extension.</p>
                 <a 
-                  href="https://github.com" 
+                  href="https://github.com/itsnazzym/LuEtApprouve/archive/main.zip" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 bg-primary hover:bg-primary/80 text-white font-bold py-3 px-6 rounded-xl transition-colors"

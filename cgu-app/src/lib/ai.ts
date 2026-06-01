@@ -109,7 +109,7 @@ GUIDE DE NOTATION GLOBALE (sois STRICT) :
 - E (MAUVAIS) : Pratiques agressives de collecte et monétisation des données utilisateur.
 - F (TRÈS MAUVAIS) : Abus de confiance, revente extensive de données, aucun contrôle utilisateur, conditions abusives.
 
-La 'quote' DOIT être la phrase originale (recopiée au mot près) suivie de sa traduction en français si elle est en anglais. MAXIMUM 200 CARACTÈRES. Pas de paragraphes entiers — uniquement la phrase clé qui justifie le point. Si elle est déjà en français, recopie-la telle quelle. Elle servira de preuve juridique.
+La 'quote' DOIT être UNIQUEMENT en français, jamais dans la langue originale. Si le texte source est en anglais, traduis-le. MAXIMUM 200 CARACTÈRES. Pas de paragraphes entiers — uniquement la phrase clé. Elle servira de preuve juridique.
 
 Texte à analyser :
 ${text.substring(0, 100000)}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldCheck, Download } from "lucide-react";
+import { ShieldCheck, Download, Lock } from "lucide-react";
 
 export default function Navigation() {
   return (
@@ -31,7 +31,14 @@ export default function Navigation() {
           </div>
         </div>
         
-        <div>
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/admin" 
+            className="text-neutral-500 hover:text-white transition-colors"
+            title="Administration"
+          >
+            <Lock className="w-5 h-5" />
+          </Link>
           <Link 
             href="/extension" 
             className="flex items-center gap-2 bg-primary hover:bg-primary/80 text-white font-bold py-2 px-4 rounded-xl transition-colors text-sm"

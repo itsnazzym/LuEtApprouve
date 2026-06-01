@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
-import { analyzeTermsOfService } from "@/lib/ai";
 import { db } from "@/db";
-import { platforms, dataPoints, sources } from "@/db/schema";
+import { platforms, sources, dataPoints } from "@/db/schema";
 import { findAllPolicyUrls } from "@/lib/crawler";
+import { analyzeTermsOfService } from "@/lib/ai";
+import { requireApiKey } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+const analyzeSchema = z.object({
+  domain: z.string().min(1).max(255),
+  url: z.string().url().optional(),
+});
 
 async function scrapeText(url: string): Promise<string> {
   const response = await fetch(url, {
@@ -21,22 +27,25 @@ async function scrapeText(url: string): Promise<string> {
   return $("body").text().replace(/\s+/g, " ").trim();
 }
 
-function computeHash(text: string): string {
-  return crypto.createHash("sha256").update(text).digest("hex");
-}
-
 export async function POST(request: NextRequest) {
-  try {
-    const { domain, url } = await request.json();
-    if (!domain) return NextResponse.json({ error: "Missing domain" }, { status: 400 });
+  const authError = requireApiKey(request);
+  if (authError) return authError;
 
+  try {
+    const body = await request.json();
+    const parsed = analyzeSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Données invalides", details: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const { domain, url } = parsed.data;
     const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
     const name = cleanDomain.split('.')[0].charAt(0).toUpperCase() + cleanDomain.split('.')[0].slice(1);
     const logoUrl = `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=128`;
 
     let foundSources = url ? [{ label: "Document fourni", url }] : [];
     if (foundSources.length === 0) {
-      console.log(`[API] Auto-discovering URLs for ${cleanDomain}...`);
+      logger.log(`[API] Auto-discovering URLs for ${cleanDomain}...`);
       foundSources = await findAllPolicyUrls(cleanDomain);
     }
 
@@ -49,14 +58,14 @@ export async function POST(request: NextRequest) {
 
     for (const source of foundSources) {
       try {
-        console.log(`[API] Scraping ${source.label}: ${source.url}...`);
+        logger.log(`[API] Scraping ${source.label}: ${source.url}...`);
         const text = await scrapeText(source.url);
         if (text.length >= 200) {
           combinedText += `\n\n--- Document: ${source.label} (${source.url}) ---\n\n${text}`;
           scraped.push(source);
         }
       } catch (e) {
-        console.warn(`[API] Échec scraping ${source.url}:`, e);
+        logger.warn(`[API] Échec scraping ${source.url}:`, e);
       }
     }
 
@@ -64,14 +73,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Textes extraits trop courts. Vérifiez les URLs fournies." }, { status: 400 });
     }
 
-    console.log(`[API] Analysing ${combinedText.length} chars with AI...`);
+    logger.log(`[API] Analysing ${combinedText.length} chars with AI...`);
     const analysis = await analyzeTermsOfService(combinedText);
 
     const firstUrl = scraped[0]?.url ?? url;
+    const contentHash = crypto.createHash("sha256").update(combinedText).digest("hex");
 
-    const contentHash = computeHash(combinedText);
-
-    console.log(`[API] Saving to DB...`);
+    logger.log(`[API] Saving to DB...`);
     const insertedPlatforms = await db.insert(platforms).values({
       name: name,
       logo_url: logoUrl,
@@ -105,16 +113,14 @@ export async function POST(request: NextRequest) {
 
     await db.insert(dataPoints).values(pointsToInsert);
 
-    console.log(`[API] Success !`);
+    logger.log(`[API] Success !`);
     return NextResponse.json({ success: true, platformId });
   } catch (error: any) {
-    console.error("API Analyze Error:", error);
+    logger.error("API Analyze Error:", error);
     let errorMessage = error.message || "Erreur interne";
-    
     if (errorMessage.includes("429") || errorMessage.includes("Quota") || error.status === 429) {
-      errorMessage = "Le quota gratuit de l'Intelligence Artificielle est épuisé pour le moment (trop de requêtes). Veuillez réessayer dans une minute.";
+      errorMessage = "Le quota gratuit de l'Intelligence Artificielle est épuisé pour le moment. Veuillez réessayer dans une minute.";
     }
-
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

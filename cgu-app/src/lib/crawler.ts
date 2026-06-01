@@ -1,7 +1,5 @@
 import * as cheerio from "cheerio";
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-
 const keywordGroups = [
   { label: "Politique de confidentialité", keywords: ["privacy", "confidentialité", "datenschutz"] },
   { label: "Conditions d'utilisation", keywords: ["terms of service", "terms of use", "conditions d'utilisation", "terms", "cgu"] },
