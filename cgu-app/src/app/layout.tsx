@@ -22,13 +22,26 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL || "http://localhost:3000"),
-  title: "LuEtApprouvé - Comprenez les règles",
-  description: "Agrégateur visuel pour simplifier les Conditions Générales d'Utilisation",
+  title: "LuEtApprouvé - Comprends les règles",
+  description: "Scanner de CGU et politiques de confidentialité pour comprendre leurs implications",
+  icons: {
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    other: [
+      { url: "/favicon.ico" },
+    ],
+  },
   openGraph: {
-    title: "LuEtApprouvé - Comprenez les règles",
-    description: "Agrégateur visuel pour simplifier les Conditions Générales d'Utilisation",
+    title: "LuEtApprouvé - Comprends les règles",
+    description: "Scanner de CGU et politiques de confidentialité pour comprendre leurs implications",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
