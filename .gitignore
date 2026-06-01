@@ -1,0 +1,54 @@
+# ─── Dependencies ───
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+.cache/
+
+# ─── Environment ───
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# ─── Build output ───
+.next/
+out/
+build/
+dist/
+.cgu-extension/dist/
+
+# ─── Vercel ───
+.vercel
+
+# ─── IDE ───
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ─── TypeScript ───
+*.tsbuildinfo
+next-env.d.ts
+
+# ─── Logs ───
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── Testing ───
+coverage/
+.nyc_output/
+
+# ─── AI Agent internal (optional: keep or uncomment to version)
+# .agents/

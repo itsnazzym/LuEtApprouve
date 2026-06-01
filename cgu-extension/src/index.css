@@ -1,0 +1,23 @@
+@import "tailwindcss";
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+body {
+  background: #171717;
+  color: #ededed;
+  margin: 0;
+  width: 350px;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --font-sans: "HarmonyOS Sans", "Inter", sans-serif;
+}

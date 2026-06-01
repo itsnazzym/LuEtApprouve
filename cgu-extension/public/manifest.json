@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "LuEtApprouvé",
+  "version": "1.0.0",
+  "description": "Votre ange gardien juridique pour les Conditions Générales.",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Voir l'analyse"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
