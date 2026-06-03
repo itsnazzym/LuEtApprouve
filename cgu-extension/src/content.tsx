@@ -8,12 +8,34 @@ function FloatingWidget() {
 
   useEffect(() => {
     const domain = window.location.hostname.replace('www.', '');
-    
-    fetch(`http://localhost:3000/api/check?domain=${domain}`)
+    fetch(`https://luetapprouve.vercel.app/api/check?domain=${domain}`)
       .then(res => res.json())
       .then(result => {
         if (result && result.found) {
           setData(result);
+          
+          // Sauvegarde des stats pour le Bilan de Santé
+          if (chrome && chrome.storage) {
+            chrome.storage.local.get(['luetapprouve_stats', 'luetapprouve_domains'], (data) => {
+              const stats: any = data.luetapprouve_stats || { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, total: 0 };
+              const domains: string[] = (data.luetapprouve_domains as string[]) || [];
+              
+              // On ne compte qu'une seule fois par domaine
+              if (!domains.includes(domain)) {
+                stats[result.platform.grade] = (stats[result.platform.grade] || 0) + 1;
+                stats.total += 1;
+                domains.push(domain);
+                
+                // Garder seulement les 100 derniers domaines pour ne pas faire exploser le storage
+                if (domains.length > 100) domains.shift();
+                
+                chrome.storage.local.set({ 
+                  luetapprouve_stats: stats,
+                  luetapprouve_domains: domains
+                });
+              }
+            });
+          }
         }
       })
       .catch(err => console.log("LuEtApprouvé not available on this domain:", err));
@@ -28,6 +50,7 @@ function FloatingWidget() {
   };
 
   const colors = getColors(data.platform.grade);
+  const isWarning = ["D", "E", "F"].includes(data.platform.grade);
 
   return (
     <div 
@@ -44,24 +67,41 @@ function FloatingWidget() {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {hovered && (
+      {(hovered || (isWarning && !hovered)) && (
         <div style={{
-          backgroundColor: '#171717',
+          backgroundColor: isWarning ? '#450a0a' : '#171717',
           color: 'white',
           padding: '16px',
           borderRadius: '16px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-          border: '1px solid #404040',
-          width: '260px',
-          marginBottom: '8px'
+          boxShadow: `0 10px 25px ${colors.shadow}`,
+          border: `1px solid ${isWarning ? '#dc2626' : '#404040'}`,
+          width: '280px',
+          marginBottom: '8px',
+          transition: 'all 0.3s ease-in-out',
+          opacity: (hovered || isWarning) ? 1 : 0
         }}>
-          <div style={{ fontWeight: '900', fontSize: '14px', marginBottom: '8px', color: '#3b82f6' }}>LuEtApprouvé</div>
-          <p style={{ fontSize: '14px', margin: 0 }}>
-            <strong>{data.platform.name}</strong> a obtenu la note <strong>{data.platform.grade}</strong>.
+          <div style={{ 
+            fontWeight: '900', 
+            fontSize: '14px', 
+            marginBottom: '8px', 
+            color: isWarning ? '#fca5a5' : '#3b82f6',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            {isWarning ? '⚠️ ALERTE SÉCURITÉ' : '🛡️ LuEtApprouvé'}
+          </div>
+          <p style={{ fontSize: '14px', margin: 0, lineHeight: '1.4' }}>
+            <strong>{data.platform.name}</strong> a obtenu la note <strong style={{color: colors.bg}}>{data.platform.grade}</strong>.
           </p>
+          {isWarning && (
+            <p style={{ fontSize: '12px', color: '#fca5a5', marginTop: '8px', margin: 0, fontWeight: 'bold' }}>
+              Ce site présente des risques élevés pour vos données.
+            </p>
+          )}
           {data.criticalPoints?.length > 0 && (
-            <p style={{ fontSize: '12px', color: '#f87171', marginTop: '8px', margin: 0 }}>
-              ⚠️ {data.criticalPoints.length} point(s) critique(s) détecté(s). Cliquez sur l'extension pour voir les détails.
+            <p style={{ fontSize: '12px', color: isWarning ? '#f87171' : '#9ca3af', marginTop: '8px', margin: 0 }}>
+              {data.criticalPoints.length} point(s) critique(s). Cliquez sur l'extension.
             </p>
           )}
         </div>
@@ -79,9 +119,10 @@ function FloatingWidget() {
         fontSize: '24px',
         fontWeight: '900',
         cursor: 'pointer',
-        boxShadow: `0 0 15px ${colors.shadow}`,
-        transition: 'transform 0.2s',
-        transform: hovered ? 'scale(1.1)' : 'scale(1)'
+        boxShadow: `0 0 20px ${colors.shadow}`,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: hovered ? 'scale(1.1) translateY(-4px)' : 'scale(1) translateY(0)',
+        border: '3px solid rgba(255,255,255,0.2)'
       }}>
         {data.platform.grade}
       </div>

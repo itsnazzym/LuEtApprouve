@@ -6,6 +6,10 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 export const analysisSchema: Schema = {
   type: Type.OBJECT,
   properties: {
+    brandName: {
+      type: Type.STRING,
+      description: "Le nom officiel de l'entreprise ou du service (ex: 'Spotify', 'Google', 'X (Twitter)'). Ne mets pas le nom de domaine, juste le nom de la marque avec la bonne majuscule.",
+    },
     grade: {
       type: Type.STRING,
       description: "Note globale de A (exceptionnel) à F (très abusif). Sois STRICT. La plupart des grandes plateformes méritent C ou D.",
@@ -43,7 +47,7 @@ export const analysisSchema: Schema = {
       },
     },
   },
-  required: ["grade", "summary", "dataPoints"],
+  required: ["brandName", "grade", "summary", "dataPoints"],
 };
 
 async function analyzeWithGrok(prompt: string): Promise<any> {

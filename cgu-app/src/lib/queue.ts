@@ -64,8 +64,15 @@ export async function processQueueJob(job: { id: string; domain: string }, onPro
   
   if (onProgress) await onProgress("Sauvegarde des résultats...");
 
+  const domainParts = job.domain.split('.');
+  const domainNameFallback = domainParts[0].charAt(0).toUpperCase() + domainParts[0].slice(1);
+  
+  const finalName = result.brandName && result.brandName.length < 50 ? result.brandName : domainNameFallback;
+  const logoUrl = `https://www.google.com/s2/favicons?domain=${job.domain}&sz=128`;
+
   const newPlatform = await db.insert(platforms).values({
-    name: job.domain,
+    name: finalName,
+    logo_url: logoUrl,
     grade: result.grade,
     summary: result.summary,
     source_url: firstUrl,

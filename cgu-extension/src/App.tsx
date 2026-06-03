@@ -1,10 +1,11 @@
 /// <reference types="chrome" />
 import { useEffect, useState } from 'react';
-import { ShieldAlert, ShieldCheck, Shield } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, Shield, ExternalLink, Settings, Activity } from 'lucide-react';
 
 function App() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
     // Dans une extension, on récupère l'onglet actif
@@ -21,6 +22,12 @@ function App() {
           }
         }
       });
+      
+      chrome.storage.local.get(['luetapprouve_stats'], (result) => {
+        if (result.luetapprouve_stats) {
+          setStats(result.luetapprouve_stats);
+        }
+      });
     } else {
       // Pour le dev local hors extension
       checkDomain("spotify.com");
@@ -30,7 +37,7 @@ function App() {
   const checkDomain = async (domain: string, force: boolean = false) => {
     try {
       if (!data) setLoading(true);
-      const res = await fetch(`http://localhost:3000/api/check?domain=${domain}&force=${force}`);
+      const res = await fetch(`https://luetapprouve.vercel.app/api/check?domain=${domain}&force=${force}`);
       const result = await res.json();
       setData({ ...result, domain }); // On garde la trace du domaine
       
@@ -163,6 +170,57 @@ function App() {
           <h3 className="font-bold text-green-500 text-sm">Aucune pratique abusive détectée</h3>
         </div>
       )}
+
+      {/* Boutons d'Action */}
+      <div className="mt-6 flex flex-col gap-2">
+        <a 
+          href={`https://luetapprouve.vercel.app/platforms/${platform.id}`} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors text-sm"
+        >
+          Voir l'analyse détaillée complète <ExternalLink size={16} />
+        </a>
+        <a 
+          href={platform.source_url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-3 px-4 rounded-xl border border-neutral-700 transition-colors text-sm"
+        >
+          Gérer mes données sur ce site <Settings size={16} />
+        </a>
+      </div>
+
+      {/* Bilan de Santé Personnel */}
+      {stats && stats.total > 0 && (
+        <div className="mt-8 pt-6 border-t border-neutral-800">
+          <h2 className="text-sm font-bold uppercase text-neutral-500 mb-4 flex items-center gap-2">
+            <Activity size={16} className="text-blue-500" /> 
+            Mon Bilan de Santé Privée
+          </h2>
+          
+          <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-4">
+            <div className="flex justify-between items-end mb-2">
+              <span className="text-xs text-neutral-400">Sites analysés : {stats.total}</span>
+              <span className="text-xs font-bold text-white">
+                {Math.round(((stats.A || 0) + (stats.B || 0)) / stats.total * 100)}% fiables
+              </span>
+            </div>
+            
+            {/* Barre de progression multi-couleurs */}
+            <div className="w-full h-2 rounded-full overflow-hidden flex bg-neutral-900">
+              <div style={{ width: `${((stats.A || 0) + (stats.B || 0)) / stats.total * 100}%` }} className="bg-green-500 h-full"></div>
+              <div style={{ width: `${((stats.C || 0) + (stats.D || 0)) / stats.total * 100}%` }} className="bg-yellow-500 h-full"></div>
+              <div style={{ width: `${((stats.E || 0) + (stats.F || 0)) / stats.total * 100}%` }} className="bg-red-500 h-full"></div>
+            </div>
+            
+            <p className="text-[10px] text-neutral-500 mt-3 text-center">
+              Ces statistiques sont calculées localement dans votre navigateur et ne sont envoyées à aucun serveur.
+            </p>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
