@@ -4,6 +4,7 @@ import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck, AlertTriangle, XCircle, Info, ArrowLeft, ExternalLink, Quote, Search } from "@/components/Icons";
+import { CopyButton } from "@/components/CopyButton";
 
 const severityOrder: Record<string, number> = { "RED": 0, "ORANGE": 1, "GREEN": 2, "GRAY": 3 };
 
@@ -108,18 +109,47 @@ export default async function PlatformPage({ params }: { params: Promise<{ id: s
                   {(() => {
                     if (!point.quote) return null;
                     const sourceUrl = allSources.length > 0 ? allSources[0].url : platform.source_url;
-                    const hash = sourceUrl.includes("#") ? "&" : "#";
-                    const anchor = `${hash}:~:text=${encodeURIComponent(point.quote.substring(0, 120))}`;
+                    
+                    // Nettoyage agressif pour maximiser les chances du Text Fragment
+                    const cleanQuote = point.quote
+                      .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'") // Normalise les apostrophes
+                      .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"') // Normalise les guillemets
+                      .replace(/\.{3}$/, '') // Retire les "..." à la fin
+                      .replace(/\.$/, '') // Retire le point à la fin
+                      .replace(/\s+/g, ' ')
+                      .trim();
+                      
+                    const words = cleanQuote.split(' ');
+                    let textFragment = '';
+                    
+                    // Plus court pour être plus résilient face aux changements du site
+                    if (words.length > 8) {
+                      const start = words.slice(0, 4).join(' ');
+                      const end = words.slice(-4).join(' ');
+                      textFragment = `${encodeURIComponent(start)},${encodeURIComponent(end)}`;
+                    } else {
+                      textFragment = encodeURIComponent(cleanQuote);
+                    }
+                    
+                    const separator = sourceUrl.includes("#") ? ':~:text=' : '#:~:text=';
+                    const targetUrl = `${sourceUrl}${separator}${textFragment}`;
+
                     return (
-                    <div className="bg-black/20 rounded-xl p-4 border border-white/5 relative mt-4">
+                    <div className="bg-black/20 rounded-xl p-4 border border-white/5 relative mt-4 group">
                       <Quote className="w-8 h-8 text-white/10 absolute top-2 left-2" />
                       <p className="text-neutral-400 italic text-sm pl-8 mb-4">&ldquo;{point.quote}&rdquo;</p>
-                      <a href={sourceUrl + anchor}
-                        target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 bg-primary/20 hover:bg-primary/40 text-primary font-bold py-2 px-4 rounded-lg transition-colors text-xs uppercase tracking-wider">
-                        <Search className="w-4 h-4" />
-                        Voir l'emplacement exact
-                      </a>
+                      <div className="flex flex-wrap gap-2">
+                        <a href={targetUrl}
+                          target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 bg-primary/20 hover:bg-primary/40 text-primary font-bold py-2 px-4 rounded-lg transition-colors text-xs uppercase tracking-wider">
+                          <Search className="w-4 h-4" />
+                          Tenter de voir l'emplacement
+                        </a>
+                        <CopyButton text={point.quote || ""} />
+                      </div>
+                      <p className="text-[10px] text-neutral-500 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        * Le surlignage automatique peut échouer si le site cible effectue une redirection (ex: vers /fr/) ou si le texte a été modifié.
+                      </p>
                     </div>
                     );
                   })()}

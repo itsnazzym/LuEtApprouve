@@ -21,7 +21,8 @@ async function scrapeText(url: string): Promise<string> {
   return $("body").text().replace(/\s+/g, ' ').trim();
 }
 
-async function scrapeCombinedText(domain: string, primaryUrl: string): Promise<{ text: string; hash: string; scraped: { label: string; url: string }[] }> {
+async function scrapeCombinedText(domain: string, primaryUrl: string, onProgress?: (phase: string) => Promise<void>): Promise<{ text: string; hash: string; scraped: { label: string; url: string }[] }> {
+  if (onProgress) await onProgress("Recherche des documents légaux...");
   const foundSources = await findAllPolicyUrls(domain);
   let combined = "";
   const scraped: { label: string; url: string }[] = [];
@@ -31,6 +32,7 @@ async function scrapeCombinedText(domain: string, primaryUrl: string): Promise<{
     : [{ label: "Document principal", url: primaryUrl }];
 
   for (const source of allUrls) {
+    if (onProgress) await onProgress(`Lecture de : ${source.label}...`);
     try {
       const text = await scrapeText(source.url);
       if (text.length >= 200) {
@@ -44,19 +46,23 @@ async function scrapeCombinedText(domain: string, primaryUrl: string): Promise<{
   return { text: combined, hash, scraped };
 }
 
-export async function processQueueJob(job: { id: string; domain: string }) {
+export async function processQueueJob(job: { id: string; domain: string }, onProgress?: (phase: string) => Promise<void>) {
+  if (onProgress) await onProgress("Démarrage du robot...");
   await db.update(crawlQueue)
-    .set({ status: "PROCESSING" })
+    .set({ status: "PROCESSING", phase: "Démarrage du robot..." })
     .where(eq(crawlQueue.id, job.id));
 
-  const { text: combinedText, hash, scraped } = await scrapeCombinedText(job.domain, `https://${job.domain}`);
+  const { text: combinedText, hash, scraped } = await scrapeCombinedText(job.domain, `https://${job.domain}`, onProgress);
 
   if (combinedText.trim().length < 500) {
     throw new Error("Textes extraits trop courts, les pages ne sont probablement pas les bonnes.");
   }
 
+  if (onProgress) await onProgress("Analyse par l'IA en cours (peut prendre jusqu'à 1 minute)...");
   const firstUrl = scraped[0]?.url ?? `https://${job.domain}`;
   const result = await analyzeTermsOfService(combinedText);
+  
+  if (onProgress) await onProgress("Sauvegarde des résultats...");
 
   const newPlatform = await db.insert(platforms).values({
     name: job.domain,
@@ -93,7 +99,7 @@ export async function processQueueJob(job: { id: string; domain: string }) {
   }
 
   await db.update(crawlQueue)
-    .set({ status: "COMPLETED" })
+    .set({ status: "COMPLETED", phase: "Terminé !" })
     .where(eq(crawlQueue.id, job.id));
 
   return {

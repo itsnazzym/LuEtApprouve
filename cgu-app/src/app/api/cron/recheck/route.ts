@@ -34,7 +34,7 @@ async function scrapeText(url: string): Promise<string | null> {
 }
 
 export async function GET(request: NextRequest) {
-  const authError = requireApiKey(request);
+  const authError = await requireApiKey(request);
   if (authError) return authError;
 
   const ip = request.headers.get("x-forwarded-for") || "cron";
@@ -44,10 +44,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [platform] = await db.select()
-      .from(platforms)
-      .orderBy(asc(platforms.last_rechecked_at))
-      .limit(1);
+    const platformId = request.nextUrl.searchParams.get("id");
+    const forceRaw = request.nextUrl.searchParams.get("force");
+    const force = forceRaw === "true";
+
+    const results = platformId
+      ? await db.select().from(platforms).where(eq(platforms.id, platformId)).limit(1)
+      : await db.select().from(platforms).orderBy(asc(platforms.last_rechecked_at)).limit(1);
+    
+    const [platform] = results;
 
     if (!platform) {
       return NextResponse.json({ message: "Aucune plateforme à vérifier" });
@@ -63,7 +68,7 @@ export async function GET(request: NextRequest) {
     const newHash = crypto.createHash("sha256").update(text).digest("hex");
     const changed = platform.content_hash && platform.content_hash !== newHash;
 
-    if (!changed && platform.content_hash) {
+    if (!changed && platform.content_hash && !force) {
       await db.update(platforms)
         .set({ last_rechecked_at: new Date() })
         .where(eq(platforms.id, platform.id));

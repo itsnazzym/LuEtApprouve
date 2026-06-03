@@ -7,23 +7,30 @@ export const metadata = {
 };
 
 export default function ApiDocsPage() {
-  const jsonResponse = `{
+  const jsonResponseFound = `{
   "found": true,
   "platform": {
     "id": "123e4567-e89b-12d3-a456-426614174000",
-    "name": "Youtube",
+    "name": "youtube.com",
     "grade": "D",
-    "summary": "YouTube collecte massivement vos données...",
+    "summary": "YouTube collecte massivement vos données et les partage avec des annonceurs tiers...",
     "logo_url": "https://logo.clearbit.com/youtube.com"
   },
   "criticalPoints": [
     {
-      "id": "...",
+      "id": "abc-def",
       "title": "Collecte de données étendue",
       "status": "RED",
-      "description": "Vos données sont partagées avec des partenaires tiers."
+      "description": "Vos données sont partagées avec des partenaires tiers à des fins publicitaires.",
+      "quote": "Nous partageons vos données personnelles avec nos partenaires publicitaires."
     }
   ]
+}`;
+
+  const jsonResponseQueue = `{
+  "found": false,
+  "in_queue": true,
+  "queue_status": "PENDING" // ou "PROCESSING", "FAILED"
 }`;
 
   return (
@@ -84,27 +91,70 @@ export default function ApiDocsPage() {
                   <tr>
                     <td className="p-4 border-b border-neutral-800 text-primary">domain</td>
                     <td className="p-4 border-b border-neutral-800">string</td>
-                    <td className="p-4 border-b border-neutral-800 font-sans">Le nom de domaine à rechercher (ex: youtube.com)</td>
+                    <td className="p-4 border-b border-neutral-800"><span className="text-red-400 text-xs font-bold mr-2 uppercase">Requis</span>Le nom de domaine à rechercher (ex: youtube.com)</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 text-primary">force</td>
+                    <td className="p-4">boolean</td>
+                    <td className="p-4">Force une nouvelle tentative d'analyse de l'IA (si le statut était FAILED). Défaut: false</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </section>
+
+          <section className="mb-16">
+            <h2 className="text-2xl font-bold text-white mb-6">Comprendre les Réponses</h2>
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-3">1. Plateforme trouvée</h3>
+                <p className="text-neutral-400 mb-4 text-sm leading-relaxed">
+                  Si le domaine a déjà été analysé, l'API renvoie <code className="text-primary bg-primary/10 px-1 py-0.5 rounded">found: true</code> avec les détails de la plateforme et la liste des points critiques (rouge ou orange). Le champ <code className="text-neutral-300 bg-neutral-800 px-1 py-0.5 rounded">quote</code> contient la citation exacte extraite des CGU.
+                </p>
+              </div>
+              
+              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-xl">
+                <h3 className="text-xl font-bold text-white mb-3">2. Ajout à la file d'attente (Non trouvé)</h3>
+                <p className="text-neutral-400 mb-4 text-sm leading-relaxed">
+                  Si le domaine n'existe pas dans notre base, il est <strong>automatiquement ajouté</strong> à notre file d'attente. L'API déclenche une tentative d'analyse via notre IA en arrière-plan et renvoie <code className="text-warning bg-warning/10 px-1 py-0.5 rounded">found: false</code>.
+                </p>
+                <ul className="list-disc list-inside text-sm text-neutral-300 space-y-2 mt-4 ml-2">
+                  <li><code className="text-neutral-100 font-bold">queue_status: "PENDING"</code> : En attente du robot ou robot lancé.</li>
+                  <li><code className="text-blue-400 font-bold">queue_status: "PROCESSING"</code> : Le robot lit actuellement les conditions (peut prendre jusqu'à 2 minutes).</li>
+                  <li><code className="text-red-400 font-bold">queue_status: "FAILED"</code> : L'IA n'a pas pu trouver la page de confidentialité ou la lire correctement.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
         </main>
 
-        <aside className="sticky top-32">
+        <aside className="sticky top-32 space-y-8">
+          {/* Response Found */}
           <div className="bg-[#0D0D0D] border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
             <div className="bg-neutral-900 px-6 py-4 border-b border-neutral-800 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">Exemple de Réponse</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">Succès (found: true)</span>
               <div className="flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-danger/50" />
-                <div className="w-3 h-3 rounded-full bg-warning/50" />
                 <div className="w-3 h-3 rounded-full bg-success/50" />
               </div>
             </div>
             <div className="p-6 overflow-x-auto">
               <pre className="text-xs font-mono text-neutral-300 leading-loose">
-                <code dangerouslySetInnerHTML={{ __html: jsonResponse.replace(/"(.*?)":/g, '<span class="text-primary">"$1"</span>:').replace(/true/g, '<span class="text-success">true</span>') }} />
+                <code dangerouslySetInnerHTML={{ __html: jsonResponseFound.replace(/"(.*?)":/g, '<span class="text-primary">"$1"</span>:').replace(/true/g, '<span class="text-success">true</span>') }} />
+              </pre>
+            </div>
+          </div>
+
+          {/* Response Queue */}
+          <div className="bg-[#0D0D0D] border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
+            <div className="bg-neutral-900 px-6 py-4 border-b border-neutral-800 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">Mise en file d'attente</span>
+              <div className="flex gap-2">
+                <div className="w-3 h-3 rounded-full bg-warning/50" />
+              </div>
+            </div>
+            <div className="p-6 overflow-x-auto">
+              <pre className="text-xs font-mono text-neutral-300 leading-loose">
+                <code dangerouslySetInnerHTML={{ __html: jsonResponseQueue.replace(/"(.*?)":/g, '<span class="text-primary">"$1"</span>:').replace(/false/g, '<span class="text-danger">false</span>').replace(/true/g, '<span class="text-success">true</span>') }} />
               </pre>
             </div>
           </div>

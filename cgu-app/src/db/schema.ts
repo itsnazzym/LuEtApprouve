@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, varchar, pgEnum, timestamp } from "drizzle-orm/pg-core";
 
 export const statusEnum = pgEnum("status", ["GREEN", "ORANGE", "RED", "GRAY"]);
-export const queueStatusEnum = pgEnum("queue_status", ["PENDING", "PROCESSING", "COMPLETED", "FAILED"]);
+export const queueStatusEnum = pgEnum("queue_status", ["PENDING", "PROCESSING", "COMPLETED", "FAILED", "NEEDS_APPROVAL"]);
 
 export const platforms = pgTable("platforms", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -38,6 +38,7 @@ export const crawlQueue = pgTable("crawl_queue", {
   id: uuid("id").defaultRandom().primaryKey(),
   domain: varchar("domain", { length: 255 }).notNull().unique(),
   status: queueStatusEnum("status").default("PENDING").notNull(),
+  phase: varchar("phase", { length: 255 }),
   error_message: text("error_message"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),

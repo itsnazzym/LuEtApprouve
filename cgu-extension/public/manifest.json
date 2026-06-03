@@ -9,11 +9,17 @@
   },
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "webNavigation",
+    "storage"
   ],
   "host_permissions": [
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "https://luetapprouve.vercel.app/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

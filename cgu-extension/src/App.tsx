@@ -27,40 +27,88 @@ function App() {
     }
   }, []);
 
-  const checkDomain = async (domain: string) => {
+  const checkDomain = async (domain: string, force: boolean = false) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/check?domain=${domain}`);
+      if (!data) setLoading(true);
+      const res = await fetch(`http://localhost:3000/api/check?domain=${domain}&force=${force}`);
       const result = await res.json();
-      setData(result);
+      setData({ ...result, domain }); // On garde la trace du domaine
+      
+      if (result.in_queue && result.queue_status !== "FAILED") {
+        setTimeout(() => checkDomain(domain, false), 2500); // Polling toutes les 2.5s
+      }
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (!data) setLoading(false);
     }
   };
 
-  if (loading) return <div className="p-6 text-center text-white bg-neutral-900 h-full flex items-center justify-center">Recherche d'analyse...</div>;
+  if (loading && !data) return <div className="p-6 text-center text-white bg-neutral-900 h-full flex items-center justify-center">Recherche d'analyse...</div>;
   
   if (!data || !data.found) {
-    const isProcessing = data && data.in_queue && data.queue_status === "PROCESSING";
+    const isProcessing = data && data.in_queue && (data.queue_status === "PROCESSING" || data.queue_status === "PENDING");
+    const isFailed = data && data.in_queue && data.queue_status === "FAILED";
+    const needsApproval = data && data.in_queue && data.queue_status === "NEEDS_APPROVAL";
 
     return (
       <div className="p-6 text-center text-white bg-neutral-900 h-full flex flex-col items-center justify-center gap-4">
-        <Shield size={48} className={`text-neutral-500 ${isProcessing ? 'animate-pulse' : ''}`} />
-        <h2 className="text-xl font-bold">
-          {isProcessing ? "Analyse en cours" : "Site en file d'attente"}
-        </h2>
-        <p className="text-sm text-neutral-400">
-          Ce site n'est pas dans notre base, mais il a été **automatiquement ajouté à notre file d'attente**.
-        </p>
-        <p className="text-xs text-neutral-500">
-          Notre IA en arrière-plan l'analysera d'ici quelques minutes pour protéger les limites de notre serveur.
-        </p>
-        
-        <div className="mt-4 w-full bg-blue-600/20 text-blue-400 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 border border-blue-600/30">
-          <span className={isProcessing ? "animate-spin text-xl" : "text-xl"}>⚙️</span>
-          {isProcessing ? "L'IA est en train de lire les CGU..." : "En attente du robot..."}
-        </div>
+        {isFailed ? (
+          <>
+            <ShieldAlert size={48} className="text-red-500" />
+            <h2 className="text-xl font-bold text-red-500">Analyse impossible</h2>
+            <p className="text-sm text-neutral-400">
+              Nous avons essayé d'analyser ce site, mais notre robot n'a pas pu trouver ou lire les Conditions Générales de manière fiable.
+            </p>
+            <button 
+              onClick={() => data.domain && checkDomain(data.domain, true)}
+              className="mt-4 w-full bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-3 px-4 rounded-xl border border-neutral-700 transition-colors"
+            >
+              Forcer une nouvelle analyse
+            </button>
+          </>
+        ) : needsApproval ? (
+          <>
+            <Shield size={48} className="text-neutral-500" />
+            <h2 className="text-xl font-bold">Site non analysé</h2>
+            <p className="text-sm text-neutral-400">
+              Ce site a été détecté mais n'a pas encore été lu par notre IA pour préserver nos ressources.
+            </p>
+            <button 
+              onClick={() => data.domain && checkDomain(data.domain, true)}
+              className="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.3)] transition-colors"
+            >
+              Lancer l'analyse par l'IA
+            </button>
+          </>
+        ) : (
+          <>
+            <Shield size={48} className={`text-neutral-500 ${isProcessing ? 'animate-pulse' : ''}`} />
+            <h2 className="text-xl font-bold">
+              {isProcessing ? "Analyse en cours" : "Site en file d'attente"}
+            </h2>
+            <p className="text-sm text-neutral-400">
+              Ce site n'est pas dans notre base, mais il a été **automatiquement ajouté à notre file d'attente**.
+            </p>
+            <p className="text-xs text-neutral-500">
+              Notre IA l'analysera d'ici quelques minutes.
+            </p>
+            <div className="mt-4 w-full bg-blue-600/10 text-blue-400 py-3 px-4 rounded-xl flex flex-col items-center justify-center gap-3 border border-blue-600/30 relative overflow-hidden shadow-[0_0_15px_rgba(37,99,235,0.1)]">
+              <div className="flex items-center gap-2 font-bold">
+                <span className={isProcessing ? "animate-spin text-xl" : "text-xl"}>⚙️</span>
+                <span>{isProcessing ? "L'IA lit les CGU..." : "En attente du robot..."}</span>
+              </div>
+              
+              <div className="w-full bg-blue-900/50 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-blue-500 h-1.5 rounded-full w-full animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
+              </div>
+              
+              <span className="text-[10px] text-blue-300 uppercase tracking-widest font-black opacity-80">
+                {data?.phase ? `Phase : ${data.phase}` : "Démarrage en cours..."}
+              </span>
+            </div>
+          </>
+        )}
       </div>
     );
   }

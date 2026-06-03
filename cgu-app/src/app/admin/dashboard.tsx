@@ -15,9 +15,12 @@ interface Stats {
 
 interface Platform { id: string; name: string; grade: string; source_url: string; last_rechecked_at: Date | null; }
 
-export function AdminDashboard({ stats, platforms }: { stats: Stats; platforms: Platform[] }) {
+interface QueueItem { id: string; domain: string; created_at: Date; status: string; }
+
+export function AdminDashboard({ stats, platforms, pendingApprovals = [] }: { stats: Stats; platforms: Platform[]; pendingApprovals?: QueueItem[] }) {
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [syncAllProgress, setSyncAllProgress] = useState<{current: number, total: number} | null>(null);
   const router = useRouter();
 
   async function handleSync() {
@@ -38,13 +41,48 @@ export function AdminDashboard({ stats, platforms }: { stats: Stats; platforms: 
     setSyncing(false);
   }
 
+  async function handleSyncAll() {
+    if (!confirm("⚠️ Attention : Cette opération va forcer l'IA à relire les CGU de TOUTES les plateformes, même si elles n'ont pas changé.\n\nCela peut prendre plusieurs minutes et consommer beaucoup de requêtes API.\n\nVoulez-vous vraiment continuer ?")) return;
+    
+    setSyncing(true);
+    setSyncAllProgress({ current: 0, total: platforms.length });
+    setResult("Synchronisation complète en cours...");
+
+    let successCount = 0;
+    for (let i = 0; i < platforms.length; i++) {
+      setSyncAllProgress({ current: i + 1, total: platforms.length });
+      try {
+        const res = await fetch(`/api/cron/recheck?force=true&id=${platforms[i].id}`);
+        const data = await res.json();
+        if (data.changed) successCount++;
+      } catch (e) {
+        console.error("Erreur sur " + platforms[i].name, e);
+      }
+    }
+    
+    setSyncAllProgress(null);
+    setResult(`Synchronisation terminée : ${successCount} plateforme(s) mise(s) à jour.`);
+    setSyncing(false);
+  }
+
+  async function handleApprove(domain: string) {
+    if (!confirm(`Voulez-vous autoriser l'IA à analyser ${domain} ?`)) return;
+    try {
+      await fetch(`/api/check?domain=${domain}&force=true`, { method: "GET" });
+      alert(`L'analyse de ${domain} a été lancée en arrière-plan !`);
+      window.location.reload();
+    } catch (e) {
+      alert("Erreur lors du lancement");
+    }
+  }
+
   async function handleLogout() {
     document.cookie = "admin_token=; path=/; max-age=0";
     router.push("/");
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 p-8">
       <div className="container mx-auto px-6 py-10 max-w-4xl">
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3">
@@ -78,22 +116,62 @@ export function AdminDashboard({ stats, platforms }: { stats: Stats; platforms: 
         <div className="bg-neutral-900 rounded-xl p-6 mb-8">
           <h2 className="font-bold text-lg mb-2">Synchronisation manuelle</h2>
           <p className="text-sm text-neutral-400 mb-4">
-            Ré-analyse la plateforme dont la dernière vérification est la plus ancienne.
+            Ré-analyse la plateforme dont la dernière vérification est la plus ancienne, ou forcez l'analyse de toutes les plateformes.
           </p>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="bg-primary hover:bg-primary/80 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Analyse en cours..." : "Synchroniser"}
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={handleSyncAll}
+              disabled={syncing}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-bold transition-all"
+            >
+              <RefreshCw size={18} className={syncAllProgress ? "animate-spin" : ""} />
+              {syncAllProgress ? `Analyse totale (${syncAllProgress.current}/${syncAllProgress.total})...` : "Tout re-synchroniser (Forcer l'IA)"}
+            </button>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-bold transition-all"
+            >
+              <RefreshCw size={18} className={syncing && !syncAllProgress ? "animate-spin" : ""} />
+              {syncing && !syncAllProgress ? "Mise à jour..." : "Mettre à jour la plus ancienne"}
+            </button>
+          </div>
           {result && (
-            <p className="mt-4 text-sm text-neutral-300 bg-neutral-800 rounded-lg px-4 py-3">{result}</p>
+            <p className="mt-4 text-sm font-medium text-neutral-600 dark:text-neutral-300">
+              Dernière action : {result}
+            </p>
           )}
         </div>
 
-        <div className="bg-neutral-900 rounded-xl overflow-hidden">
+        {/* Section Approbations (Background Extension) */}
+        {pendingApprovals.length > 0 && (
+          <div className="bg-white dark:bg-neutral-800 rounded-2xl p-6 shadow-sm border border-yellow-500/30">
+            <h2 className="text-xl font-bold text-neutral-800 dark:text-white mb-4 flex items-center gap-2">
+              <span className="text-yellow-500">⚠️</span>
+              Sites en attente de validation ({pendingApprovals.length})
+            </h2>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+              Ces sites ont été détectés par l'extension en arrière-plan. Validez-les pour que l'IA les analyse.
+            </p>
+            <div className="space-y-3">
+              {pendingApprovals.map((item) => (
+                <div key={item.id} className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 p-4 rounded-xl">
+                  <div>
+                    <h3 className="font-bold text-neutral-800 dark:text-white">{item.domain}</h3>
+                    <p className="text-xs text-neutral-500">Détecté le {new Date(item.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleApprove(item.domain)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm">
+                      Lancer l'IA
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-neutral-800">
             <h2 className="font-bold">Plateformes</h2>
           </div>

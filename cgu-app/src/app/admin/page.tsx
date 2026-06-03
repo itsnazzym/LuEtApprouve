@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth";
 import { db } from "@/db";
-import { platforms, dataPoints } from "@/db/schema";
+import { platforms, dataPoints, crawlQueue } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { AdminDashboard } from "./dashboard";
 
 export const dynamic = "force-dynamic";
@@ -28,5 +29,10 @@ export default async function AdminPage() {
     if (p.grade in stats.grades) stats.grades[p.grade as keyof typeof stats.grades]++;
   }
 
-  return <AdminDashboard stats={stats} platforms={allPlatforms} />;
+  const pendingApprovals = await db.select()
+    .from(crawlQueue)
+    .where(eq(crawlQueue.status, "NEEDS_APPROVAL"))
+    .orderBy(desc(crawlQueue.created_at));
+
+  return <AdminDashboard stats={stats} platforms={allPlatforms} pendingApprovals={pendingApprovals} />;
 }
